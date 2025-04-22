@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 var ArgsHandler = new ArgsHandler(args);
 string? Directory = ArgsHandler.GetDirectory();
-if(Directory is null)
+if (Directory is null)
 {
     Directory = "./";
 }
@@ -17,29 +17,28 @@ void HandleForbidden(Socket acceptedSocket)
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(404);
-    var r = acceptedSocket.Send(rb.Create());
+    var r = acceptedSocket.Send(rb.Build());
     Console.WriteLine(r);
 }
 void HandleInternalServer(Socket acceptedSocket)
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(404);
-    var r = acceptedSocket.Send(rb.Create());
+    var r = acceptedSocket.Send(rb.Build());
     Console.WriteLine(r);
 }
 void HandleNotFound(Socket acceptedSocket)
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(404);
-    var r = acceptedSocket.Send(rb.Create());
+    var r = acceptedSocket.Send(rb.Build());
     Console.WriteLine(r);
 }
-
 void Get(Socket acceptedSocket, string received)
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(200);
-    var r = acceptedSocket.Send(rb.Create());
+    var r = acceptedSocket.Send(rb.Build());
     Console.WriteLine(r);
 }
 void GetEcho(Socket acceptedSocket, string received, bool gzip)
@@ -48,14 +47,10 @@ void GetEcho(Socket acceptedSocket, string received, bool gzip)
     string content = match.Groups[1].Value;
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(200);
-    if(gzip){
-        content = Gzip.CompresString(content);
-        rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\nContent-Encoding: gzip\r\n");
-    } else {
-        rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\n");
-    }
+    rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\n");
     rb.SetBody(content);
-    var r = acceptedSocket.Send(rb.Create());
+    rb.SetCompressGzip(gzip);
+    var r = acceptedSocket.Send(rb.Build());
     Console.WriteLine(r);
 }
 void GetUserAgent(Socket acceptedSocket, string received)
@@ -85,7 +80,7 @@ void GetFile(Socket acceptedSocket, string received)
     {
         ResponseBuilder rb = new ResponseBuilder();
         rb.SetStatus(404);
-        var ra = acceptedSocket.Send(rb.Create());
+        var ra = acceptedSocket.Send(rb.Build());
         Console.WriteLine(ra);
         return;
     }
@@ -98,7 +93,6 @@ void GetFile(Socket acceptedSocket, string received)
     var r = acceptedSocket.Send(Encoding.UTF8.GetBytes(response));
     Console.WriteLine(r);
 }
-
 void PostFile(Socket acceptedSocket, string received)
 {
     var match = Regex.Match(received,
@@ -135,7 +129,7 @@ void PostFile(Socket acceptedSocket, string received)
 
             ResponseBuilder rb = new ResponseBuilder();
             rb.SetStatus(ResponseCodes.CREATED);
-            var r = acceptedSocket.Send(rb.Create());
+            var r = acceptedSocket.Send(rb.Build());
             Console.WriteLine(r);
         }
         catch (UnauthorizedAccessException)
@@ -153,7 +147,6 @@ void PostFile(Socket acceptedSocket, string received)
         HandleNotFound(acceptedSocket);
     }
 }
-
 void HandleSocket(Socket AcceptedSocket)
 {
     byte[] RecivedMessage = new byte[256];
@@ -165,7 +158,7 @@ void HandleSocket(Socket AcceptedSocket)
     if (match.Success)
     {
         string encodingMethods = match.Groups[1].Value;
-        string[] methods = encodingMethods.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+        string[] methods = encodingMethods.Split([','], StringSplitOptions.RemoveEmptyEntries)
                                         .Select(m => m.Trim())
                                         .ToArray();
         gzip = methods.Contains("gzip");
