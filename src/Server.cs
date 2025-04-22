@@ -5,6 +5,10 @@ using System.Text.RegularExpressions;
 
 var ArgsHandler = new ArgsHandler(args);
 string? Directory = ArgsHandler.GetDirectory();
+if(Directory is null)
+{
+    Directory = "./";
+}
 
 TcpListener Server = new TcpListener(IPAddress.Any, 4221);
 Server.Start();
@@ -45,7 +49,7 @@ void GetEcho(Socket acceptedSocket, string received, bool gzip)
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(200);
     if(gzip){
-        content = ResponseBuilder.CompresString(content);
+        content = Gzip.CompresString(content);
         rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\nContent-Encoding: gzip\r\n");
     } else {
         rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\n");
@@ -114,13 +118,6 @@ void PostFile(Socket acceptedSocket, string received)
         string contentType = match.Groups["contentType"].Value;
         string body = match.Groups["body"].Value;
 
-        Console.WriteLine($"Method: {method}");
-        Console.WriteLine($"Path: {path}");
-        Console.WriteLine($"Host: {host}");
-        Console.WriteLine($"Content-Length: {contentLength}");
-        Console.WriteLine($"Content-Type: {contentType}");
-        Console.WriteLine($"Body: {body}");
-
         try
         {
 
@@ -164,8 +161,14 @@ void HandleSocket(Socket AcceptedSocket)
     var Received = Encoding.UTF8.GetString(RecivedMessage);
     Console.WriteLine($"Recived: {Received}");
     bool gzip = false;
-    if (Regex.IsMatch(Received, @"Accept-Encoding: gzip")){
-        gzip=true;
+    Match match = Regex.Match(Received, @"Accept-Encoding:\s*([^\r\n]+)");
+    if (match.Success)
+    {
+        string encodingMethods = match.Groups[1].Value;
+        string[] methods = encodingMethods.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                        .Select(m => m.Trim())
+                                        .ToArray();
+        gzip = methods.Contains("gzip");
     }
 
     if (Regex.IsMatch(Received, @"^GET \/ HTTP\/1\.1"))
