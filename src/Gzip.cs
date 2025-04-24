@@ -18,11 +18,6 @@ class Gzip
     public static string CompressString(string text)
     {
         byte[] compressed = CompressWithGzip(text);
-        Console.WriteLine("###");
-        Console.WriteLine(
-            BitConverter.ToString(compressed).Replace("-", " ")
-        );
-        Console.WriteLine("###");
         return Encoding.UTF8.GetString(compressed);
     }
 }

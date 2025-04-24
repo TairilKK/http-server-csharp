@@ -14,28 +14,28 @@ class ResponseBuilder
     bool CompressGzip = false;
     public override string ToString()
     {
-        return Body is null ? $"HTTP/1.1 {Status}\r\n{Header}\r\n\r\n" : $"HTTP/1.1 {Status}\r\n{Header}\r\n{Body}\r\n";
+        return Body is null
+            ? $"HTTP/1.1 {Status}\r\n{Header}\r\n\r\n"
+            : $"HTTP/1.1 {Status}\r\n{Header}\r\n{Body}";
     }
     public byte[] Build()
     {
-        if (CompressGzip && Body is not null && Header is not null){
-            if(!Header.Contains("Content-Encoding: gzip\r\n"))
+        if (CompressGzip && Body is not null && Header is not null)
+        {
+            if (!Header.Contains("Content-Encoding: gzip\r\n"))
             {
                 Header += "Content-Encoding: gzip\r\n";
             }
             var compressed = Gzip.CompressWithGzip(Body);
-            Console.WriteLine(Header);
             var compressedResponse =
         $"HTTP/1.1 {Status}\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: {compressed.Length}\r\n\r\n";
-    return [..Encoding.UTF8.GetBytes(compressedResponse), .. Gzip.CompressWithGzip(Body)];
+            return [.. Encoding.UTF8.GetBytes(compressedResponse), .. Gzip.CompressWithGzip(Body)];
         }
         else if (Header is not null)
         {
             Header.Replace("Content-Encoding: gzip\r\n", "");
         }
-        Console.WriteLine("### START ###");
-        Console.WriteLine(this);
-        Console.WriteLine("### END ###");
+
         return Encoding.UTF8.GetBytes(ToString());
     }
 
@@ -84,7 +84,8 @@ class ResponseBuilder
         this.Body = Body;
     }
 
-    public void SetCompressGzip(bool gzip){
+    public void SetCompressGzip(bool gzip)
+    {
         CompressGzip = gzip;
     }
 }

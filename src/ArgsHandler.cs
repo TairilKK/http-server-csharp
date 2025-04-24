@@ -3,7 +3,7 @@ class ArgsHandler{
     public ArgsHandler(string[] args){
         this.args = args;
     }
-    public string? GetDirectory(){
+    public string GetDirectory(){
         string? directory = null;
         for (int i = 0; i < args.Length; i++)
         {
@@ -13,7 +13,7 @@ class ArgsHandler{
                 break;
             }
         }
-        return directory;
+        return directory is null ? "./" : directory;
     }
 
 }

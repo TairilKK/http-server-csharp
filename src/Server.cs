@@ -4,44 +4,36 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 var ArgsHandler = new ArgsHandler(args);
-string? Directory = ArgsHandler.GetDirectory();
-if (Directory is null)
-{
-    Directory = "./";
-}
+string Directory = ArgsHandler.GetDirectory();
 
 TcpListener Server = new TcpListener(IPAddress.Any, 4221);
 Server.Start();
 
-void HandleForbidden(Socket acceptedSocket)
+byte[] HandleForbidden()
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(404);
-    var r = acceptedSocket.Send(rb.Build());
-    Console.WriteLine(r);
+    return rb.Build();
 }
-void HandleInternalServer(Socket acceptedSocket)
+byte[] HandleInternalServer()
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(404);
-    var r = acceptedSocket.Send(rb.Build());
-    Console.WriteLine(r);
+    return rb.Build();
 }
-void HandleNotFound(Socket acceptedSocket)
+byte[] HandleNotFound()
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(404);
-    var r = acceptedSocket.Send(rb.Build());
-    Console.WriteLine(r);
+    return rb.Build();
 }
-void Get(Socket acceptedSocket, string received)
+byte[] Get()
 {
     ResponseBuilder rb = new ResponseBuilder();
     rb.SetStatus(200);
-    var r = acceptedSocket.Send(rb.Build());
-    Console.WriteLine(r);
+    return rb.Build();
 }
-void GetEcho(Socket acceptedSocket, string received, bool gzip)
+byte[] GetEcho(string received, bool gzip)
 {
     var match = Regex.Match(received, @"^GET \/echo\/([^ ]+) HTTP\/1\.1");
     string content = match.Groups[1].Value;
@@ -50,50 +42,50 @@ void GetEcho(Socket acceptedSocket, string received, bool gzip)
     rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\n");
     rb.SetBody(content);
     rb.SetCompressGzip(gzip);
-    var r = acceptedSocket.Send(rb.Build());
-    Console.WriteLine(r);
+    return rb.Build();
 }
-void GetUserAgent(Socket acceptedSocket, string received)
+byte[] GetUserAgent(string received)
 {
     var match = Regex.Match(received, @"User-Agent: (.+?)\r\n");
     if (match.Success)
     {
         string content = match.Groups[1].Value.Trim();
-        Console.WriteLine(content);
-
-        string response = $"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {content.Length}\r\n\r\n{content}";
-        var r = acceptedSocket.Send(Encoding.UTF8.GetBytes(response));
-        Console.WriteLine(r);
+        ResponseBuilder rb = new ResponseBuilder();
+        rb.SetStatus(200);
+        rb.SetHeader($"Content-Type: text/plain\r\nContent-Length: {content.Length}\r\n");
+        rb.SetBody(content);
+        return rb.Build();
     }
     else
     {
-        string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-        acceptedSocket.Send(Encoding.UTF8.GetBytes(response));
+        ResponseBuilder rb = new ResponseBuilder();
+        rb.SetStatus(400);
+        return rb.Build();
     }
 }
-void GetFile(Socket acceptedSocket, string received)
+
+byte[] GetFile(string received)
 {
     var match = Regex.Match(received, @"^GET \/files\/([^ ]+) HTTP\/1\.1");
     var filePath = $"{Directory}/{match.Groups[1].Value}";
-    Console.WriteLine(filePath);
+
     if (!File.Exists(filePath))
     {
         ResponseBuilder rb = new ResponseBuilder();
         rb.SetStatus(404);
-        var ra = acceptedSocket.Send(rb.Build());
-        Console.WriteLine(ra);
-        return;
+        return rb.Build();
     }
-
-    string readText = File.ReadAllText(filePath);
-
-    string response =
-        $"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {readText.Length}\r\n\r\n{readText}";
-    Console.WriteLine(response);
-    var r = acceptedSocket.Send(Encoding.UTF8.GetBytes(response));
-    Console.WriteLine(r);
+    else
+    {
+        string readText = File.ReadAllText(filePath);
+        ResponseBuilder rb = new ResponseBuilder();
+        rb.SetStatus(200);
+        rb.SetHeader($"Content-Type: application/octet-stream\r\nContent-Length: {readText.Length}\r\n");
+        rb.SetBody(readText);
+        return rb.Build();
+    }
 }
-void PostFile(Socket acceptedSocket, string received)
+byte[] PostFile(string received)
 {
     var match = Regex.Match(received,
             @"^(?<method>\w+)\s(?<path>[^\s]+)\sHTTP/1\.1\r?\n" +
@@ -129,30 +121,26 @@ void PostFile(Socket acceptedSocket, string received)
 
             ResponseBuilder rb = new ResponseBuilder();
             rb.SetStatus(ResponseCodes.CREATED);
-            var r = acceptedSocket.Send(rb.Build());
-            Console.WriteLine(r);
+            return rb.Build();
+
         }
         catch (UnauthorizedAccessException)
         {
-            HandleForbidden(acceptedSocket);
+            return HandleForbidden();
         }
-        catch (IOException ex)
+        catch (IOException)
         {
-            HandleInternalServer(acceptedSocket);
-            Console.WriteLine(ex);
+            return HandleInternalServer();
         }
     }
     else
     {
-        HandleNotFound(acceptedSocket);
+        return HandleNotFound();
     }
 }
-void HandleSocket(Socket AcceptedSocket)
+
+byte[] HandleEndpoints(string Received)
 {
-    byte[] RecivedMessage = new byte[256];
-    var BytesRecived = AcceptedSocket.Receive(RecivedMessage);
-    var Received = Encoding.UTF8.GetString(RecivedMessage);
-    Console.WriteLine($"Recived: {Received}");
     bool gzip = false;
     Match match = Regex.Match(Received, @"Accept-Encoding:\s*([^\r\n]+)");
     if (match.Success)
@@ -166,27 +154,88 @@ void HandleSocket(Socket AcceptedSocket)
 
     if (Regex.IsMatch(Received, @"^GET \/ HTTP\/1\.1"))
     {
-        Get(AcceptedSocket, Received);
+        return Get();
     }
     else if (Regex.IsMatch(Received, @"^GET \/echo\/[^ ]+ HTTP\/1\.1"))
     {
-        GetEcho(AcceptedSocket, Received, gzip);
+        return GetEcho(Received, gzip);
     }
     else if (Regex.IsMatch(Received, @"^GET \/user-agent HTTP\/1\.1"))
     {
-        GetUserAgent(AcceptedSocket, Received);
+        return GetUserAgent(Received);
     }
     else if (Regex.IsMatch(Received, @"^GET \/files\/[^ ]+ HTTP\/1\.1"))
     {
-        GetFile(AcceptedSocket, Received);
+        return GetFile(Received);
     }
     else if (Regex.IsMatch(Received, @"^POST \/files\/[^ ]+ HTTP\/1\.1"))
     {
-        PostFile(AcceptedSocket, Received);
+        return PostFile(Received);
     }
     else
     {
-        HandleNotFound(AcceptedSocket);
+        return HandleNotFound();
+    }
+}
+
+bool TryGetCompleteRequest(ref StringBuilder receivedData, out string request)
+{
+    request = null;
+    string data = receivedData.ToString();
+
+    // 1. Znajdź koniec nagłówków
+    int headerEnd = data.IndexOf("\r\n\r\n");
+    if (headerEnd == -1) return false;
+
+    // 2. Pobierz Content-Length jeśli istnieje
+    string headers = data.Substring(0, headerEnd);
+    int contentLength = 0;
+
+    var contentLengthMatch = Regex.Match(headers, @"Content-Length:\s*(\d+)", RegexOptions.IgnoreCase);
+    if (contentLengthMatch.Success)
+    {
+        contentLength = int.Parse(contentLengthMatch.Groups[1].Value);
+    }
+
+    // 3. Sprawdź czy mamy kompletne żądanie (nagłówki + ciało)
+    int totalLength = headerEnd + 4 + contentLength;
+    if (data.Length < totalLength) return false;
+
+    // 4. Wyodrębnij żądanie
+    request = data.Substring(0, totalLength);
+    receivedData.Remove(0, totalLength);
+
+    return true;
+}
+
+void HandleSocket(Socket acceptedSocket)
+{
+    byte[] buffer = new byte[4096]; // Większy bufor
+    NetworkStream stream = new NetworkStream(acceptedSocket);
+    StringBuilder receivedData = new StringBuilder();
+
+    try
+    {
+        while (acceptedSocket.Connected)
+        {
+
+            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+            if (bytesRead == 0) break;
+
+            receivedData.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
+
+            // Przetwarzaj wszystkie kompletne żądania w buforze
+            while (TryGetCompleteRequest(ref receivedData, out string request))
+            {
+                Console.WriteLine($"Processing request:\n{request}");
+                byte[] response = HandleEndpoints(request);
+                acceptedSocket.Send(response);
+            }
+        }
+    }
+    finally
+    {
+        acceptedSocket.Close();
     }
 }
 
