@@ -23,7 +23,7 @@ class ResponseBuilder
     {
 
         Header += KeepAlive
-            ? "" //"Connection: keep-alive\r\n"
+            ? "Connection: keep-alive\r\n"
             : "Connection: close\r\n";
 
         if (CompressGzip && Body is not null && Header is not null)
