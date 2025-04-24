@@ -15,7 +15,7 @@ class ResponseBuilder
     public override string ToString()
     {
         return Body is null
-            ? $"HTTP/1.1 {Status}\r\n{Header}\r\n\r\n"
+            ? $"HTTP/1.1 {Status}\r\n{Header}\r\n"
             : $"HTTP/1.1 {Status}\r\n{Header}\r\n{Body}";
     }
     public byte[] Build()
