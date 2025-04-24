@@ -173,11 +173,9 @@ bool TryGetCompleteRequest(ref StringBuilder receivedData, out string request)
     request = null;
     string data = receivedData.ToString();
 
-    // 1. Znajdź koniec nagłówków
     int headerEnd = data.IndexOf("\r\n\r\n");
     if (headerEnd == -1) return false;
 
-    // 2. Pobierz Content-Length jeśli istnieje
     string headers = data.Substring(0, headerEnd);
     int contentLength = 0;
 
@@ -187,11 +185,9 @@ bool TryGetCompleteRequest(ref StringBuilder receivedData, out string request)
         contentLength = int.Parse(contentLengthMatch.Groups[1].Value);
     }
 
-    // 3. Sprawdź czy mamy kompletne żądanie (nagłówki + ciało)
     int totalLength = headerEnd + 4 + contentLength;
     if (data.Length < totalLength) return false;
 
-    // 4. Wyodrębnij żądanie
     request = data.Substring(0, totalLength);
     receivedData.Remove(0, totalLength);
 
