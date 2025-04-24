@@ -12,6 +12,7 @@ class ResponseBuilder
     string? Header;
     string? Body;
     bool CompressGzip = false;
+    private bool KeepAlive = true;
     public override string ToString()
     {
         return Body is null
@@ -20,6 +21,11 @@ class ResponseBuilder
     }
     public byte[] Build()
     {
+
+        Header += KeepAlive
+            ? "" //"Connection: keep-alive\r\n"
+            : "Connection: close\r\n";
+
         if (CompressGzip && Body is not null && Header is not null)
         {
             if (!Header.Contains("Content-Encoding: gzip\r\n"))
@@ -87,5 +93,9 @@ class ResponseBuilder
     public void SetCompressGzip(bool gzip)
     {
         CompressGzip = gzip;
+    }
+    public void SetKeepAlive(bool keepAlive)
+    {
+        KeepAlive = keepAlive;
     }
 }
